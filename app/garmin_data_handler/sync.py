@@ -225,7 +225,8 @@ class Result:
     failures: list[str] = field(default_factory=list)
 
 
-def sync_person(person_dir: Path, today: date | None = None, api_factory=Api) -> Result:
+def sync_person(person_dir: Path, today: date | None = None, api_factory=Api,
+                full: bool = False) -> Result:
     res = Result(person_dir.name)
     api_key = prepare(person_dir)
     if api_key is None:
@@ -255,12 +256,12 @@ def sync_person(person_dir: Path, today: date | None = None, api_factory=Api) ->
             if ds.kind == "once":
                 chunks = [(today, today)]
             else:
-                chunks = plan(origin, today, db.covered_days(conn, ds.name), ds.max_days)
+                chunks = plan(origin, today, set() if full else db.covered_days(conn, ds.name), ds.max_days)
             while chunks:
                 start, end = chunks.pop(0)
                 try:
                     if ds.kind == "activities":
-                        n = fetch_activities(api, conn, ds, start, end, refresh=end >= window_start)
+                        n = fetch_activities(api, conn, ds, start, end, refresh=full or end >= window_start)
                     else:
                         n = fetch_chunk(api, conn, ds, start, end, today)
                 except AuthError:
@@ -294,6 +295,7 @@ def sync_person(person_dir: Path, today: date | None = None, api_factory=Api) ->
 
 
 def main(person_root: Path) -> int:
+    person_root.mkdir(parents=True, exist_ok=True)
     people = sorted(p for p in person_root.iterdir() if p.is_dir() and not p.name.startswith("."))
     if not people:
         print(f"No person folders in {person_root}. Create {person_root}/<name>/ and run again.")
