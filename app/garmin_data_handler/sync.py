@@ -116,7 +116,8 @@ class Api:
 def datasets_template() -> str:
     lines = ["# Garmin data sets to back up. Put # in front of a line to turn it off.",
              "# Turning a data set on later downloads its full history.", ""]
-    lines += [f"{d.name:<20}# {d.cost}" if d.cost else d.name for d in DATASETS]
+    lines += [f"{'' if d.default_on else '#'}{d.name:<20}# {d.cost}" if d.cost else d.name
+              for d in DATASETS]
     return "\n".join(lines) + "\n"
 
 

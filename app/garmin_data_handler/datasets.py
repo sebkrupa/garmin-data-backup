@@ -38,6 +38,8 @@ class Dataset:
     rows: Rows = _as_list
     key: Key = _calendar_date
     cost: str = ""
+    # False: the generated datasets.txt lists it commented out.
+    default_on: bool = True
 
 
 # shortcut: Swagger gives no max range for hrv/goals/wellness activity, so
@@ -80,12 +82,15 @@ DATASETS: list[Dataset] = [
     Dataset("spo2", "/wellness-service/wellness/daily/spo2acclimation/{date}", "day",
             "DailySpO2AndAcclimationDTO", key=lambda item, d: d, cost="~365 calls/year"),
     Dataset("food_logs", "/nutrition-service/food/logs/{date}", "day",
-            "DailyNutritionSummaryDTO", key=lambda item, d: d, cost="~365 calls/year"),
+            "DailyNutritionSummaryDTO", key=lambda item, d: d, cost="~365 calls/year",
+            default_on=False),
     Dataset("menstrual_summary", "/periodichealth-service/menstrualcycle/summary/{date}", "day",
-            "MenstrualCycleSummaryDTO", key=lambda item, d: d, cost="~365 calls/year"),
+            "MenstrualCycleSummaryDTO", key=lambda item, d: d, cost="~365 calls/year",
+            default_on=False),
     Dataset("menstrual_dayview", "/periodichealth-service/menstrualcycle/dayview/{date}", "day",
             "DetailedMenstrualCycleDayDTO", params={"todayDate": "{today}"},
-            key=lambda item, d: d, cost="~365 calls/year"),
+            key=lambda item, d: d, cost="~365 calls/year",
+            default_on=False),
     # --- every run: current state ---
     Dataset("profile_settings", "/userprofile-service/userprofile/settings", "once",
             "UserSettingsDTO", key=lambda item, d: "current"),
