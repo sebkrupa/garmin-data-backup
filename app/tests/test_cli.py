@@ -110,3 +110,22 @@ class LegacyTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class OnboardTest(unittest.TestCase):
+    def test_creates_root_person_and_key(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "person"
+            answers = iter(["../bad", "anna"])
+            cli.onboard(root, ask=lambda _: next(answers), ask_secret=lambda _: "dummy-key")
+            key = root / "anna" / "api_key.txt"
+            self.assertEqual(key.read_text(), "dummy-key\n")
+            self.assertEqual(key.stat().st_mode & 0o777, 0o600)
+
+    def test_empty_name_cancels_and_empty_key_skips(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "person"
+            cli.onboard(root, ask=lambda _: "", ask_secret=lambda _: "")
+            self.assertEqual(list(root.iterdir()), [])
+            cli.onboard(root, ask=lambda _: "bob", ask_secret=lambda _: "")
+            self.assertEqual((root / "bob" / "api_key.txt").read_text(), "")

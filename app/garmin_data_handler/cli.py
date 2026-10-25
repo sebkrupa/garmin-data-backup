@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import getpass
 from datetime import date
 from pathlib import Path
 
@@ -54,6 +55,35 @@ def edit_person(root: Path, name: str, api_key: str | None = None,
     if start_date is not None:
         (person_dir / START_DATE_FILE).write_text(start_date + "\n")
     return person_dir
+
+
+def onboard(root: Path, ask=input, ask_secret=getpass.getpass) -> None:
+    """Interactive setup for `./run`: create the root and a first person, ask for missing API keys.
+
+    Empty answer to a question skips it (no name: stop; no key: sync reports it later)."""
+    root.mkdir(parents=True, exist_ok=True)
+    if not any(p.is_dir() and not p.name.startswith(".") for p in root.iterdir()):
+        print(f"There is no person folder in {root}.")
+        while True:
+            name = ask("Name the first person to download Garmin data for (empty = cancel): ").strip()
+            if not name:
+                return
+            try:
+                new_person(root, name)
+                break
+            except ValueError as e:
+                print(f"Error: {e}")
+        print(f"Created {root / name}.")
+    for d in sorted(p for p in root.iterdir() if p.is_dir() and not p.name.startswith(".")):
+        key_file = d / API_KEY_FILE
+        if key_file.exists() and key_file.read_text().strip():
+            continue
+        prepare(d)
+        print("Get the key from https://connect.garmin.com/app/settings/personalApiToken")
+        key = ask_secret(f"Now provide the API key for {d.name} (input hidden, empty = later): ").strip()
+        if key:
+            edit_person(root, d.name, api_key=key)
+            print(f"Saved key to {key_file} (mode 600).")
 
 
 def build_parser() -> argparse.ArgumentParser:

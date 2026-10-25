@@ -294,6 +294,7 @@ def sync_person(person_dir: Path, today: date | None = None, api_factory=Api,
 
 
 def main(person_root: Path) -> int:
+    person_root.mkdir(parents=True, exist_ok=True)
     people = sorted(p for p in person_root.iterdir() if p.is_dir() and not p.name.startswith("."))
     if not people:
         print(f"No person folders in {person_root}. Create {person_root}/<name>/ and run again.")
