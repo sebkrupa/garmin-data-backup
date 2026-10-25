@@ -14,6 +14,20 @@ mkdir person/<name>
 ./run            # full backup the first time, incremental after that
 ```
 
+Or use the subcommands (`--person-root` goes before the subcommand, default `./person`):
+
+```shell
+cd app
+uv run python -m garmin_data_handler new anna
+uv run python -m garmin_data_handler edit anna --api-key <key> --datasets steps_daily,sleep_daily --start-date 2024-01-01
+uv run python -m garmin_data_handler sync anna          # full the first time, then only what is missing
+uv run python -m garmin_data_handler sync anna --full   # download everything again
+uv run python -m garmin_data_handler --person-root /data/people sync anna
+```
+
+`--datasets` is comma-separated; the others are turned off. `--api-key` on the command line lands in your shell history, so for a real key edit `api_key.txt` instead.
+`./run` (or `python -m garmin_data_handler <person root>`) still syncs every person folder.
+
 Needs `uv`. Stopping a run (Ctrl+C) is safe: the next run continues.
 
 ## Files per person (`person/<name>/`, never committed)
