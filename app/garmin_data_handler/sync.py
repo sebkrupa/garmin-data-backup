@@ -17,6 +17,7 @@ from .datasets import ACTIVITY_DETAIL, ACTIVITY_WORKOUTS, BY_NAME, DATASETS, Dat
 
 API_KEY_FILE = "api_key.txt"
 LOG_FILE = "sync.log"
+MISSING_LOG_FILE = "missing_data.log"
 DB_FILE = "garmin.sqlite"
 DATASETS_FILE = "datasets.txt"
 START_DATE_FILE = "start_date.txt"
@@ -223,10 +224,13 @@ class Result:
     rows: int = 0
     origin: str = ""
     failures: list[str] = field(default_factory=list)
+    # missing-data mode: data set -> (missing days found, still missing after the retrieval)
+    missing: dict[str, tuple[int, int]] = field(default_factory=dict)
 
 
 def sync_person(person_dir: Path, today: date | None = None, api_factory=Api,
-                full: bool = False) -> Result:
+                full: bool = False, missing_only: bool = False) -> Result:
+    """``missing_only``: download only the days before today that have no row yet."""
     res = Result(person_dir.name)
     api_key = prepare(person_dir)
     if api_key is None:
@@ -253,7 +257,17 @@ def sync_person(person_dir: Path, today: date | None = None, api_factory=Api,
         window_start = today - timedelta(days=REFETCH_DAYS - 1)
 
         for ds in read_datasets(person_dir / DATASETS_FILE):
-            if ds.kind == "once":
+            gaps: set[date] = set()
+            if missing_only:
+                last = today - timedelta(days=1)
+                if ds.kind not in ("range", "day") or ds.sparse:
+                    continue
+                gaps = db.missing_days(conn, ds, origin, last)
+                if not gaps:
+                    continue
+                all_days = {origin + timedelta(days=i) for i in range((last - origin).days + 1)}
+                chunks = plan(origin, last, all_days - gaps, ds.max_days, refetch_days=0)
+            elif ds.kind == "once":
                 chunks = [(today, today)]
             else:
                 chunks = plan(origin, today, set() if full else db.covered_days(conn, ds.name), ds.max_days)
@@ -285,6 +299,10 @@ def sync_person(person_dir: Path, today: date | None = None, api_factory=Api,
                 res.ok += 1
                 res.rows += n
                 log.info("OK   %s %s..%s rows=%d", ds.name, start, end, n)
+            if missing_only:
+                res.missing[ds.name] = (len(gaps), len(db.missing_days(conn, ds, origin, last)))
+                log.info("MISSING %s: %d days without data, %d left after retrieval",
+                         ds.name, *res.missing[ds.name])
     except AuthError as e:
         res.status = f"auth failed: {e}"
         log.error("STOP %s: %s", person_dir.name, e)
@@ -294,12 +312,30 @@ def sync_person(person_dir: Path, today: date | None = None, api_factory=Api,
     return res
 
 
-def main(person_root: Path) -> int:
+def write_missing_report(person_root: Path, results: list[Result]) -> Path:
+    """Append the outcome of a missing-data retrieval to one log file in the person root."""
+    path = person_root / MISSING_LOG_FILE
+    with path.open("a") as f:
+        f.write(f"=== missing data retrieval {datetime.now().isoformat(timespec='seconds')} ===\n")
+        for r in results:
+            f.write(f"{r.person}: {r.status} | requests ok={r.ok} failed={r.failed} rows={r.rows}\n")
+            for name, (found, left) in r.missing.items():
+                f.write(f"  {name}: {found} missing days, {found - left} retrieved, {left} still missing\n")
+            if not r.missing and r.status == "ok":
+                f.write("  no missing days\n")
+            for fail in r.failures:
+                f.write(f"  FAIL {fail}\n")
+    return path
+
+
+def main(person_root: Path, missing: bool = False) -> int:
     person_root.mkdir(parents=True, exist_ok=True)
     people = sorted(p for p in person_root.iterdir() if p.is_dir() and not p.name.startswith("."))
     if not people:
         print(f"No person folders in {person_root}. Create {person_root}/<name>/ and run again.")
         return 1
+    if missing:
+        print(f"Missing data report: {write_missing_report(person_root, [sync_person(p, missing_only=True) for p in people])}")
     results = [sync_person(p) for p in people]
     print("\nSummary:")
     for r in results:

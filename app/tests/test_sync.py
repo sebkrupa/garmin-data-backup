@@ -104,6 +104,26 @@ class SyncPersonTest(unittest.TestCase):
         self.assertEqual(steps, ["/usersummary-service/stats/steps/daily/2026-01-01/2026-01-20"])
         self.assertIn("FAIL steps_daily", (self.person / "sync.log").read_text())
 
+    def test_missing_only_fills_gaps_before_today_and_writes_report(self):
+        sync.prepare(self.person)
+        (self.person / "api_key.txt").write_text("key\n")
+        (self.person / "datasets.txt").write_text("hrv_detail\nactivities\n")
+        (self.person / "start_date.txt").write_text("2026-01-01\n")
+        fake = FakeApi(None, None)
+        today = D("2026-01-20")
+        sync.sync_person(self.person, today=today, api_factory=lambda *a: fake)
+        conn = sqlite3.connect(self.person / "garmin.sqlite")
+        conn.execute("DELETE FROM hrv_detail WHERE _key IN ('2026-01-05', '2026-01-06', '2026-01-20')")
+        conn.commit()
+        conn.close()
+
+        fake.calls.clear()
+        res = sync.sync_person(self.person, today=today, api_factory=lambda *a: fake, missing_only=True)
+        self.assertEqual(res.missing, {"hrv_detail": (2, 0)})  # today is not a gap; activities are skipped
+        self.assertEqual(sorted(fake.calls), ["/hrv-service/hrv/2026-01-05", "/hrv-service/hrv/2026-01-06"])
+        report = sync.write_missing_report(self.tmp, [res]).read_text()
+        self.assertIn("hrv_detail: 2 missing days, 2 retrieved, 0 still missing", report)
+
 
 if __name__ == "__main__":
     unittest.main()
