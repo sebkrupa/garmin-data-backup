@@ -40,6 +40,8 @@ class Dataset:
     cost: str = ""
     # False: the generated datasets.txt lists it commented out.
     default_on: bool = True
+    # True: not one row per calendar day, so absent days are not gaps.
+    sparse: bool = False
 
 
 # shortcut: Swagger gives no max range for hrv/goals/wellness activity, so
@@ -65,14 +67,14 @@ DATASETS: list[Dataset] = [
     Dataset("weight_daily", "/weight-service/weight/range/{start}/{end}", "range",
             "DailyWeightSummary", 365, {"includeAll": "true"},
             rows=lambda r: (r or {}).get("dailyWeightSummaries") or [],
-            key=lambda item, d: str(item.get("summaryDate") or d)),
+            key=lambda item, d: str(item.get("summaryDate") or d), sparse=True),
     # /weight-service/weight/all is skipped: it returns HTTP 400 for every range;
     # weight_daily.allWeightMetrics already holds every entry.
     Dataset("weight_goals", "/goal-service/goal/user/effective/weightgoal/{start}/{end}", "range",
-            "UserGoalsRangeDTO", 28, key=lambda item, d: d),
+            "UserGoalsRangeDTO", 28, key=lambda item, d: d, sparse=True),
     Dataset("wellness_activity", "/wellnessactivity-service/activity/summary/range/{start}/{end}",
             "range", "WellnessActivitySummaryDTO", 28,
-            key=lambda item, d: json.dumps(item.get("activityUuid"), sort_keys=True)),
+            key=lambda item, d: json.dumps(item.get("activityUuid"), sort_keys=True), sparse=True),
     # --- one call per day: expensive (~365 calls per year each) ---
     Dataset("hrv_detail", "/hrv-service/hrv/{date}", "day", "HrvChartDTO",
             cost="~365 calls/year"),

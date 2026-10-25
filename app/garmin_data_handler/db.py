@@ -165,6 +165,13 @@ def covered_days(conn: sqlite3.Connection, dataset: str) -> set[date]:
     return days
 
 
+def missing_days(conn: sqlite3.Connection, ds: Dataset, first: date, last: date) -> set[date]:
+    """Days in first..last with no row in the data set's table (a day Garmin has no data for counts too)."""
+    have = {r[0] for r in conn.execute(f'SELECT _key FROM "{ds.name}"')}
+    days = (first + timedelta(days=i) for i in range((last - first).days + 1))
+    return {d for d in days if d.isoformat() not in have}
+
+
 def get_meta(conn: sqlite3.Connection, key: str) -> str | None:
     row = conn.execute("SELECT value FROM meta WHERE key = ?", (key,)).fetchone()
     return row[0] if row else None

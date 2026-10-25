@@ -10,7 +10,13 @@ plus the last 7 days again (Garmin finalizes sleep and HRV later).
 ./run            # first run: asks for a person name, creates person/<name>/,
                  # asks for the API key (hidden input), then backs up
 ./run            # full backup the first time, incremental after that
+./run --missing-data   # first look for gaps, then the normal backup (see below)
 ```
+
+`--missing-data` scans every person for days before today that have no row in a
+per-day data set (a day Garmin has no data for counts too, so such days are asked
+again each time), downloads those days, and appends the result per person and
+data set to `person/missing_data.log`. Then the standard update runs for everyone.
 
 The key comes from https://connect.garmin.com/app/settings/personalApiToken.
 `./run` creates `person/` if it is missing. In an interactive terminal it also
