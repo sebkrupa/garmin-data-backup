@@ -1,0 +1,6 @@
+# API keys and health data: never commit
+person/*
+person/.gitkeep
+app/.venv/
+__pycache__/
+.DS_Store

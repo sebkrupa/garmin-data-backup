@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Run the Garmin backup for every folder in ./person.
+set -euo pipefail
+here="$(cd "$(dirname "$0")" && pwd)"
+exec uv --directory "$here/app" run python -m garmin_data_handler "$here/person" "$@"
