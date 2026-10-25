@@ -7,12 +7,30 @@ plus the last 7 days again (Garmin finalizes sleep and HRV later).
 ## Use
 
 ```shell
-mkdir person/<name>
-./run            # creates the person files, asks for the API key
-# put the key from https://connect.garmin.com/app/settings/personalApiToken
-# into person/<name>/api_key.txt
+./run            # first run: asks for a person name, creates person/<name>/,
+                 # asks for the API key (hidden input), then backs up
 ./run            # full backup the first time, incremental after that
 ```
+
+The key comes from https://connect.garmin.com/app/settings/personalApiToken.
+`./run` creates `person/` if it is missing. In an interactive terminal it also
+asks for the key of any person whose `api_key.txt` is empty (empty answer =
+skip; put the key into `api_key.txt` yourself later). Without a terminal
+(cron) it asks nothing.
+
+Or use the subcommands (`--person-root` goes before the subcommand, default `./person`):
+
+```shell
+cd app
+uv run python -m garmin_data_handler new anna
+uv run python -m garmin_data_handler edit anna --api-key <key> --datasets steps_daily,sleep_daily --start-date 2024-01-01
+uv run python -m garmin_data_handler sync anna          # full the first time, then only what is missing
+uv run python -m garmin_data_handler sync anna --full   # download everything again
+uv run python -m garmin_data_handler --person-root /data/people sync anna
+```
+
+`--datasets` is comma-separated; the others are turned off. `--api-key` on the command line lands in your shell history, so for a real key edit `api_key.txt` instead.
+`./run` (or `python -m garmin_data_handler <person root>`) still syncs every person folder.
 
 Needs `uv`. Stopping a run (Ctrl+C) is safe: the next run continues.
 
